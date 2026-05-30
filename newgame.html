@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Care Cubs | Mirror Bot - Elite Customizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #030409; --brand-primary: #00d4ff; --brand-secondary: #ff007b; --brand-accent: #00ffaa;
+            --surface-color: rgba(15, 18, 28, 0.6); --surface-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff; --text-secondary: rgba(255,255,255,0.5);
+            --font-display: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-base); font-family: var(--font-display); color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+
+        #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        
+        .video-feed { position: absolute; right: 30px; bottom: 30px; width: 240px; z-index: 10; border-radius: 12px; transform: scaleX(-1); opacity: 0.1; transition: opacity 0.4s; border: 1px solid rgba(255,255,255,0.05); }
+        .video-feed:hover { opacity: 0.8; }
+
+        #render-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+
+        /* --- Premium UI Layer --- */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; pointer-events: none; display: none; }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; pointer-events: auto; }
+
+        .btn-glass { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; font-size: 0.85rem; font-weight: 500; letter-spacing: 0.05em; color: var(--text-primary); text-decoration: none; background: var(--surface-color); border: 1px solid var(--surface-border); border-radius: 100px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); cursor: pointer; }
+        .btn-glass:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+
+        .hud-stats { display: flex; gap: 30px; }
+        .stat-block { display: flex; flex-direction: column; align-items: flex-end; }
+        .stat-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; font-family: var(--font-mono); }
+        .stat-value { font-size: 2rem; font-weight: 300; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+        
+        .streak-value { background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 600; }
+        
+        .combo-badge { font-size: 0.8rem; background: rgba(255, 170, 0, 0.2); color: #ffaa00; border: 1px solid #ffaa00; padding: 2px 8px; border-radius: 20px; font-weight: 700; margin-top: 5px; opacity: 0; transform: translateY(-10px); transition: all 0.3s;}
+        .combo-badge.active { opacity: 1; transform: translateY(0); }
+
+        .mission-console { align-self: center; background: rgba(10, 12, 20, 0.6); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; padding: 40px 60px; text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1); transform: translateY(20px); opacity: 0; pointer-events: auto; transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); max-width: 800px;}
+        .mission-console.active { transform: translateY(0); opacity: 1; }
+        
+        .mission-header { font-size: 0.8rem; font-family: var(--font-mono); color: var(--brand-primary); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 15px; }
+        .mission-gesture { font-size: 2.2rem; font-weight: 600; letter-spacing: -0.02em; display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;}
+        
+        .time-track { width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 30px; overflow: hidden; position: relative; }
+        .time-fill { position: absolute; top: 0; left: 0; height: 100%; width: 100%; background: var(--brand-primary); transition: width 0.1s linear, background-color 0.3s; box-shadow: 0 0 10px var(--brand-primary); }
+
+        /* --- Premium Customization / Onboarding Screen --- */
+        #creator-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; background: transparent; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1); padding: 40px; pointer-events: auto; }
+        #creator-screen.hidden { opacity: 0; pointer-events: none; }
+        
+        .creator-container { background: var(--surface-color); backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); border: 1px solid var(--surface-border); border-radius: 32px; padding: 50px 60px; max-width: 900px; width: 100%; box-shadow: 0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); text-align: left; }
+        
+        .hero-title { font-size: 3rem; font-weight: 300; letter-spacing: -0.03em; margin-bottom: 5px; line-height: 1.1; text-align: center; }
+        .hero-title b { font-weight: 700; background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero-desc { font-size: 1rem; font-weight: 400; color: var(--text-secondary); text-align: center; line-height: 1.6; margin-bottom: 40px; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        
+        .form-group { display: flex; flex-direction: column; gap: 10px; }
+        .form-group label { font-size: 0.7rem; font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.15em; color: var(--brand-primary); text-transform: uppercase; }
+        
+        .form-group input, .form-group select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 16px 20px; border-radius: 12px; font-family: var(--font-display); font-size: 0.95rem; outline: none; transition: border-color 0.3s; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--brand-primary); }
+        .form-group select option { background: var(--bg-base); }
+
+        .color-picker { display: flex; gap: 12px; }
+        .color-btn { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.3s; outline: none; }
+        .color-btn:hover { transform: translateY(-3px); }
+        .color-btn.selected { border-color: white; transform: scale(1.1); box-shadow: 0 0 15px currentColor; }
+
+        .btn-launch { grid-column: 1 / -1; padding: 20px; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.1em; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7)); color: #000000; border: none; border-radius: 100px; cursor: pointer; transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); box-shadow: 0 15px 35px rgba(255,255,255,0.15); margin-top: 10px; }
+        .btn-launch:hover { transform: translateY(-4px); box-shadow: 0 25px 50px rgba(255,255,255,0.25); }
+        .btn-launch.loading { background: rgba(255,255,255,0.1); color: var(--text-secondary); box-shadow: none; pointer-events: none; }
+
+        .status-msg { margin-top: 20px; font-size: 0.85rem; font-family: var(--font-mono); font-weight: 500; letter-spacing: 0.1em; color: var(--brand-primary); opacity: 0; text-align: center; transition: opacity 0.3s; grid-column: 1/-1;}
+        .btn-launch.loading + .status-msg { opacity: 1; animation: pulse 1.5s infinite alternate; }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div id="bg-canvas"></div>
+    <video class="video-feed" id="video_input" autoplay playsinline></video>
+    <canvas id="render-canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <a href="games_list.html" class="btn-glass">← TERMINATE SESSION</a>
+            <div class="hud-stats">
+                <div class="stat-block">
+                    <span class="stat-label">Neural Resonance</span>
+                    <span class="stat-value score-value" id="ui-score">0</span>
+                    <div class="combo-badge" id="ui-combo">x1.0 COMBO</div>
+                </div>
+                <div class="stat-block">
+                    <span class="stat-label">Consecutive Syncs</span>
+                    <span class="stat-value streak-value" id="ui-streak">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mission-console" id="mission-panel">
+            <div class="mission-header" id="mission-label">Awaiting Input</div>
+            <div class="mission-gesture" id="mission-target">Loading...</div>
+            <div class="time-track"><div class="time-fill" id="mission-time"></div></div>
+        </div>
+    </div>
+
+    <!-- Onboarding & Elite Customization -->
+    <div id="creator-screen">
+        <div class="creator-container">
+            <h1 class="hero-title">Mirror <b>Bot</b> Engine</h1>
+            <p class="hero-desc">Elite Neural Interface Customization. Professional standards. Calibrate parameters.</p>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Player Signature</label>
+                    <input type="text" id="playerName" placeholder="e.g. PILOT-Alpha" value="PILOT-1" maxlength="16">
+                </div>
+
+                <div class="form-group">
+                    <label>Environment Core</label>
+                    <select id="bgTheme">
+                        <option value="cyberpunk">Cybernetics Base (Cyan/Pink)</option>
+                        <option value="nature">Bioluminescence (Green/Teal)</option>
+                        <option value="space">Deep Void (Deep Blue/Purple)</option>
+                        <option value="retro">Synthwave (Orange/Magenta)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Movement Algorithm</label>
+                    <select id="gestureTheme">
+                        <option value="classic">Standard Neural Handshake</option>
+                        <option value="martial">Martial Arts (Combos Enabled)</option>
+                        <option value="animal">Animal Forms (Complex Hooks)</option>
+                        <option value="sports">Athletic Signals</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Optic Sensor Resonance (Eye Color)</label>
+                    <div class="color-picker">
+                        <div class="color-btn selected" style="background:#00d4ff; color:#00d4ff" data-hex="0x00d4ff"></div>
+                        <div class="color-btn" style="background:#ff007b; color:#ff007b" data-hex="0xff007b"></div>
+                        <div class="color-btn" style="background:#00ffaa; color:#00ffaa" data-hex="0x00ffaa"></div>
+                        <div class="color-btn" style="background:#ffaa00; color:#ffaa00" data-hex="0xffaa00"></div>
+                        <div class="color-btn" style="background:#bb00ff; color:#bb00ff" data-hex="0xbb00ff"></div>
+                    </div>
+                </div>
+
+                <button class="btn-launch" id="btn-start">INITIALIZE DEPLOYMENT</button>
+                <div class="status-msg">COMPILING NEURAL NET... PLEASE WAIT</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GESTURE_PACKS = {
+            classic: [
+                { id: 'palm', name: 'Open Hand', icon: '🖐️' }, { id: 'peace', name: 'Peace', icon: '✌️' },
+                { id: 'fist', name: 'Closed Fist', icon: '✊' }, { id: 'thumbs_up', name: 'Thumbs Up', icon: '👍' }
+            ],
+            martial: [
+                { id: 'palm', name: 'Crane Strike', icon: '🖐️' }, { id: 'fist', name: 'Tiger Strike', icon: '✊' },
+                { id: 'peace', name: 'Mantis Hook', icon: '✌️' }
+            ],
+            animal: [
+                { id: 'palm', name: 'Bear Paw', icon: '🖐️' }, { id: 'fist', name: 'Turtle Shell', icon: '✊' },
+                { id: 'peace', name: 'Bunny Ears', icon: '✌️' }
+            ],
+            sports: [
+                { id: 'palm', name: 'Defense', icon: '🖐️' }, { id: 'thumbs_up', name: 'Referee OK', icon: '👍' },
+                { id: 'peace', name: 'Timeout', icon: '✌️' }
+            ]
+        };
+
+        const THEMES = {
+            cyberpunk: { bg: 0x030409, fog: 0x030409, l1: 0x00d4ff, l2: 0xff007b, p: 0x00d4ff },
+            nature: { bg: 0x011a0b, fog: 0x011a0b, l1: 0x00ffaa, l2: 0x00d4ff, p: 0x00ffaa },
+            space: { bg: 0x000108, fog: 0x000108, l1: 0x3300ff, l2: 0x0022ff, p: 0xffffff },
+            retro: { bg: 0x1a0510, fog: 0x1a0510, l1: 0xffaa00, l2: 0xff007b, p: 0xffaa00 }
+        };
+
+        const AudioEngine = {
+            ctx: null, masterGain: null,
+            init() {
+                if(this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain(); this.masterGain.gain.value = 0.6;
+                const dry = this.ctx.createGain(); dry.gain.value = 1;
+                this.masterGain.connect(dry); dry.connect(this.ctx.destination);
+            },
+            play(freqs, type='sine', attack=0.01, decay=0.1, sustain=0.3, release=0.5, vol=0.1) {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = type;
+                if (Array.isArray(freqs)) { osc.frequency.setValueAtTime(freqs[0], this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(freqs[1], this.ctx.currentTime + attack); } 
+                else { osc.frequency.value = freqs; }
+                const now = this.ctx.currentTime;
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(vol, now + attack);
+                gain.gain.exponentialRampToValueAtTime(vol * sustain, now + attack + decay); gain.gain.linearRampToValueAtTime(0.0001, now + attack + decay + release);
+                osc.connect(gain); gain.connect(this.masterGain);
+                osc.start(now); osc.stop(now + attack + decay + release + 0.1);
+            },
+            sfxSuccess(pitch=1) { this.play(523.25*pitch, 'sine', 0.05, 0.1, 0.4, 0.8, 0.1); setTimeout(()=>this.play(659.25*pitch, 'sine', 0.05, 0.1, 0.4, 0.8, 0.1), 50); setTimeout(()=>this.play(783.99*pitch, 'triangle', 0.01, 0.05, 0.2, 0.6, 0.05), 100); },
+            sfxFail() { this.play([200, 50], 'sawtooth', 0.01, 0.2, 0.1, 0.5, 0.15); },
+            sfxTick() { this.play(880, 'sine', 0.01, 0.05, 0, 0.05, 0.03); },
+            sfxCombo() { this.play(440, 'square', 0.05, 0.5, 0, 0.5, 0.1); setTimeout(()=>this.play(880, 'square', 0.05, 0.5, 0, 0.5, 0.1), 100); },
+            sfxStartup() { this.play([220, 880], 'sine', 0.5, 0.1, 1, 1.0, 0.1); }
+        };
+
+        let scene, camera3D, renderer, headGroup, eyeL, eyeR, envParticles, pLight1, pLight2;
+        let activeEyeColor = 0x00d4ff;
+        
+        const init3D = () => {
+            const container = document.getElementById('bg-canvas');
+            scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x030409, 0.002);
+            camera3D = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 1, 1000); camera3D.position.z = 150;
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            const ambLight = new THREE.AmbientLight(0xffffff, 0.2); scene.add(ambLight);
+            pLight1 = new THREE.PointLight(0x00d4ff, 1.5, 300); pLight1.position.set(-50, 50, 50); scene.add(pLight1);
+            pLight2 = new THREE.PointLight(0xff007b, 1.0, 300); pLight2.position.set(50, -50, 50); scene.add(pLight2);
+
+            headGroup = new THREE.Group();
+            const coreGeom = new THREE.BoxGeometry(40, 30, 25, 4, 4, 4);
+            const coreMat = new THREE.MeshPhysicalMaterial({ color: 0x050508, metalness: 0.9, roughness: 0.1, clearcoat: 1.0, clearcoatRoughness: 0.1 });
+            headGroup.add(new THREE.Mesh(coreGeom, coreMat));
+
+            const faceGeom = new THREE.PlaneGeometry(38, 28);
+            const faceMat = new THREE.MeshPhysicalMaterial({ color: 0x000000, metalness: 1.0, roughness: 0.0, transmission: 0.9, thickness: 1.5 });
+            const face = new THREE.Mesh(faceGeom, faceMat); face.position.z = 12.6; headGroup.add(face);
+
+            const eyeGeom = new THREE.CylinderGeometry(4, 4, 8, 16);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: activeEyeColor, emissiveIntensity: 2.0 });
+            eyeL = new THREE.Mesh(eyeGeom, eyeMat); eyeL.position.set(-10, 0, 12.5); eyeL.rotation.z = Math.PI/2;
+            eyeR = new THREE.Mesh(eyeGeom, eyeMat); eyeR.position.set(10, 0, 12.5); eyeR.rotation.z = Math.PI/2;
+            headGroup.add(eyeL); headGroup.add(eyeR);
+            scene.add(headGroup);
+
+            const partGeom = new THREE.BufferGeometry();
+            const posArray = new Float32Array(200 * 3);
+            for(let i=0; i<600; i++) posArray[i] = (Math.random() - 0.5) * 400;
+            partGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const partMat = new THREE.PointsMaterial({ size: 1.5, color: 0x00d4ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
+            envParticles = new THREE.Points(partGeom, partMat); scene.add(envParticles);
+
+            window.addEventListener('resize', () => { camera3D.aspect = window.innerWidth / window.innerHeight; camera3D.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); resize2D();});
+        };
+
+        function applyTheme(themeKey, hexColor) {
+            const t = THEMES[themeKey];
+            scene.fog.color.setHex(t.fog);
+            renderer.setClearColor(t.bg);
+            pLight1.color.setHex(t.l1); pLight2.color.setHex(t.l2);
+            envParticles.material.color.setHex(t.p);
+            
+            activeEyeColor = parseInt(hexColor);
+            eyeL.material.emissive.setHex(activeEyeColor);
+        }
+
+        const state = {
+            score: 0, streak: 0, 
+            comboCounter: 0, activeCombo: [], comboIndex: 0,
+            maxTime: 4.0, time: 4.0, isPlayable: false, emotion: 'neutral',
+            lastDetectionTime: 0, packId: 'classic', playerName: 'PILOT-1'
+        };
+
+        const DOM = {
+            streak: document.getElementById('ui-streak'), score: document.getElementById('ui-score'), combo: document.getElementById('ui-combo'),
+            panel: document.getElementById('mission-panel'), label: document.getElementById('mission-label'),
+            target: document.getElementById('mission-target'), timeFill: document.getElementById('mission-time'),
+        };
+
+        function updateRobotEmotion(type) {
+            state.emotion = type; const eMat = eyeL.material;
+            if(type === 'happy') { eMat.emissive.setHex(0x00ffaa); eMat.emissiveIntensity = 3.0; }
+            else if(type === 'sad') { eMat.emissive.setHex(0xff007b); eMat.emissiveIntensity = 1.0; }
+            else if(type === 'focus') { eMat.emissive.setHex(0xffaa00); eMat.emissiveIntensity = 2.5; }
+            else { eMat.emissive.setHex(activeEyeColor); eMat.emissiveIntensity = 1.5; }
+        }
+
+        function generateCombo() {
+            const pack = GESTURE_PACKS[state.packId];
+            let len = 1;
+            if(state.streak > 4) len = 2;
+            if(state.streak > 12) len = 3;
+            
+            let seq = [];
+            for(let i=0; i<len; i++) {
+                let next; do { next = pack[Math.floor(Math.random()*pack.length)]; } while(i>0 && seq[i-1].id === next.id);
+                seq.push(next);
+            }
+            return seq;
+        }
+
+        function nextMission() {
+            state.activeCombo = generateCombo();
+            state.comboIndex = 0;
+            state.time = Math.max(1.5, 4.0 - (state.streak * 0.1)) * state.activeCombo.length; 
+            state.maxTime = state.time;
+            
+            DOM.label.textContent = state.activeCombo.length > 1 ? 'CHAIN COMBO' : 'SYNCHRONIZE'; 
+            DOM.label.style.color = state.activeCombo.length > 1 ? "#ffaa00" : "var(--brand-primary)";
+            renderComboTargets();
+            
+            DOM.panel.classList.add('active'); DOM.panel.style.borderColor = "rgba(255,255,255,0.05)";
+            updateRobotEmotion('focus'); AudioEngine.sfxTick();
+        }
+
+        function renderComboTargets() {
+            let html = "";
+            state.activeCombo.forEach((t, i) => {
+                let col = "#ffffff", op = 1;
+                if(i < state.comboIndex) { col = "#00ffaa"; op = 0.5; }
+                else if(i === state.comboIndex) { col = "#00d4ff"; op = 1; }
+                else { op = 0.5; }
+                html += `<span style="color:${col}; opacity:${op}; margin:0 10px;">${t.name} <span style="opacity:0.8">${t.icon}</span></span>`;
+                if(i < state.activeCombo.length-1) html += `<span style="color:rgba(255,255,255,0.2)">→</span>`;
+            });
+            DOM.target.innerHTML = html;
+        }
+
+        function handleStepWin() {
+            state.comboIndex++;
+            updateRobotEmotion('happy');
+            
+            if(state.comboIndex >= state.activeCombo.length) {
+                let isCombo = state.activeCombo.length > 1;
+                state.streak++;
+                state.comboCounter = isCombo ? state.comboCounter + 1 : 0;
+                
+                let multiplier = 1 + (state.activeCombo.length * 0.5) + (state.comboCounter * 0.2);
+                let pts = Math.floor((100 + (state.streak*10)) * multiplier);
+                state.score += pts;
+                
+                DOM.streak.textContent = state.streak; DOM.score.textContent = state.score;
+                DOM.label.textContent = isCombo ? "ULTRA COMBO CLEAR!" : "SYNC PERFECT"; 
+                DOM.label.style.color = "#00ffaa"; DOM.panel.style.borderColor = "#00ffaa";
+                
+                if(isCombo) {
+                    DOM.combo.classList.add('active'); DOM.combo.textContent = `x${multiplier.toFixed(1)} MULTIPLIER`;
+                    setTimeout(()=>DOM.combo.classList.remove('active'), 2000);
+                    AudioEngine.sfxCombo();
+                } else {
+                    AudioEngine.sfxSuccess(1 + (state.streak * 0.02));
+                }
+                
+                triggerParticles(window.innerWidth/2, window.innerHeight/2 + 100, '#00ffaa', isCombo?100:40);
+                setTimeout(()=> { if(state.isPlayable) nextMission(); }, 1200);
+            } else {
+                AudioEngine.sfxTick(); triggerParticles(window.innerWidth/2, window.innerHeight/2, '#00d4ff', 20);
+                renderComboTargets();
+                state.time += 1.0;
+            }
+        }
+
+        function handleLoss() {
+            state.streak = 0; state.comboCounter = 0; DOM.streak.textContent = 0;
+            DOM.label.textContent = "LINK BROKEN"; DOM.label.style.color = "var(--brand-secondary)";
+            DOM.panel.style.borderColor = "var(--brand-secondary)";
+            DOM.combo.classList.remove('active');
+            updateRobotEmotion('sad'); AudioEngine.sfxFail();
+            triggerParticles(window.innerWidth/2, window.innerHeight/2 + 100, '#ff007b', 40);
+            
+            setTimeout(()=> { if(state.isPlayable) nextMission(); }, 1500);
+        }
+
+        function classifyGesture(lm) {
+            const dist = (a, b) => Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2); const wrist = lm[0];
+            const thumbExt = dist(wrist, lm[4]) > dist(wrist, lm[3]); const indexExt = dist(wrist, lm[8]) > dist(wrist, lm[6]) * 1.2;
+            const midExt   = dist(wrist, lm[12]) > dist(wrist, lm[10]) * 1.2; const ringExt  = dist(wrist, lm[16]) > dist(wrist, lm[14]) * 1.2;
+            const pinkyExt = dist(wrist, lm[20]) > dist(wrist, lm[18]) * 1.2;
+
+            if (thumbExt && indexExt && midExt && ringExt && pinkyExt) return 'palm';
+            if (!thumbExt && indexExt && midExt && !ringExt && !pinkyExt) return 'peace';
+            if (thumbExt && !indexExt && !midExt && !ringExt && !pinkyExt && lm[4].y < lm[3].y) return 'thumbs_up';
+            if (!thumbExt && !indexExt && !midExt && !ringExt && !pinkyExt) return 'fist';
+            return 'none';
+        }
+
+        const cvs2d = document.getElementById('render-canvas'); const ctx2d = cvs2d.getContext('2d', { alpha: true, desynchronized: true });
+        let hw, hh; function resize2D() { hw = window.innerWidth; hh = window.innerHeight; cvs2d.width = hw; cvs2d.height = hh; }
+        
+        let handNodes = new Array(21).fill(0).map(()=>({x:0,y:0,z:0})); let hasHand = false; let vfxParticles = [];
+        function triggerParticles(x, y, color, qty=40) { for(let i=0; i<qty; i++) vfxParticles.push({x:x, y:y, vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20 - 5, life:1.0, color:color, size:Math.random()*4+2}); }
+
+        const clock = new THREE.Clock();
+        let gestureCooldown = 0;
+        
+        function animate() {
+            requestAnimationFrame(animate); const dt = clock.getDelta(); const time = clock.getElapsedTime();
+            if(gestureCooldown>0) gestureCooldown -= dt;
+
+            if(headGroup) {
+                headGroup.position.y = Math.sin(time * 1.5) * 3;
+                if(hasHand) {
+                    headGroup.rotation.x += (((handNodes[0].y - 0.5) * 1.0) - headGroup.rotation.x) * dt * 5.0;
+                    headGroup.rotation.y += (((handNodes[0].x - 0.5) * 1.5) - headGroup.rotation.y) * dt * 5.0;
+                } else {
+                    headGroup.rotation.x += (0 - headGroup.rotation.x) * dt * 2.0;
+                    headGroup.rotation.y += (Math.sin(time*0.5)*0.2 - headGroup.rotation.y) * dt * 2.0;
+                }
+
+                if (state.emotion === 'neutral' && Math.random() < 0.01) { eyeL.scale.y = 0.1; eyeR.scale.y = 0.1; } 
+                else if(state.emotion !== 'happy' && state.emotion !== 'sad') { eyeL.scale.y += (1.0 - eyeL.scale.y) * dt * 15.0; eyeR.scale.y += (1.0 - eyeR.scale.y) * dt * 15.0; } 
+                else { eyeL.scale.y = 1.0; eyeR.scale.y = 1.0; }
+
+                if(state.emotion === 'happy') { eyeL.scale.y = 0.5; eyeL.rotation.z = Math.PI/2.5; eyeR.scale.y = 0.5; eyeR.rotation.z = Math.PI/1.5; } 
+                else if(state.emotion === 'sad') { eyeL.rotation.z = Math.PI/1.5; eyeR.rotation.z = Math.PI/2.5; } 
+                else { eyeL.rotation.z = Math.PI/2; eyeR.rotation.z = Math.PI/2; }
+            }
+            if(envParticles) { envParticles.rotation.y += dt * 0.05; envParticles.position.y = Math.sin(time)*5; }
+            renderer.render(scene, camera3D);
+
+            ctx2d.clearRect(0,0,hw,hh);
+            if(Date.now() - state.lastDetectionTime > 300) hasHand = false;
+
+            if (hasHand) {
+                ctx2d.lineCap = 'round'; ctx2d.lineJoin = 'round';
+                const conns = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]];
+                ctx2d.beginPath(); conns.forEach(([a,b]) => { ctx2d.moveTo((1-handNodes[a].x)*hw, handNodes[a].y*hh); ctx2d.lineTo((1-handNodes[b].x)*hw, handNodes[b].y*hh); });
+                ctx2d.strokeStyle = `#${activeEyeColor.toString(16).padStart(6, '0')}88`; ctx2d.lineWidth = 14; ctx2d.shadowColor = `#${activeEyeColor.toString(16).padStart(6, '0')}`; ctx2d.shadowBlur = 20; ctx2d.stroke();
+                ctx2d.beginPath(); conns.forEach(([a,b]) => { ctx2d.moveTo((1-handNodes[a].x)*hw, handNodes[a].y*hh); ctx2d.lineTo((1-handNodes[b].x)*hw, handNodes[b].y*hh); });
+                ctx2d.strokeStyle = '#ffffff'; ctx2d.lineWidth = 4; ctx2d.shadowBlur = 0; ctx2d.stroke();
+            }
+
+            for(let i=vfxParticles.length-1; i>=0; i--) {
+                let p = vfxParticles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= dt * 1.2;
+                if(p.life <=0) { vfxParticles.splice(i,1); continue; }
+                ctx2d.globalAlpha = p.life; ctx2d.fillStyle = p.color; ctx2d.shadowColor = p.color; ctx2d.shadowBlur = 15;
+                ctx2d.beginPath(); ctx2d.arc(p.x, p.y, p.size*p.life, 0, Math.PI*2); ctx2d.fill();
+            }
+            ctx2d.globalAlpha = 1; ctx2d.shadowBlur = 0;
+
+            if (state.isPlayable && state.activeCombo.length > 0 && state.comboIndex < state.activeCombo.length) {
+                if (state.emotion === 'focus') {
+                    state.time -= dt;
+                    let pct = Math.max(0, state.time / state.maxTime);
+                    DOM.timeFill.style.width = `${pct*100}%`;
+                    DOM.timeFill.style.backgroundColor = pct < 0.3 ? 'var(--brand-secondary)' : 'var(--brand-primary)';
+
+                    if (state.time <= 0) handleLoss();
+                    else if (hasHand && gestureCooldown <= 0) {
+                        let gest = classifyGesture(handNodes);
+                        if (gest === state.activeCombo[state.comboIndex].id) { handleStepWin(); gestureCooldown = 0.5; }
+                    }
+                }
+            }
+        }
+
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+                e.target.classList.add('selected');
+            });
+        });
+
+        let hands, camera;
+        try {
+            hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.85, minTrackingConfidence: 0.85 });
+
+            hands.onResults((results) => {
+                state.lastDetectionTime = Date.now();
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    const raw = results.multiHandLandmarks[0];
+                    if (!hasHand) { for(let i=0; i<21; i++) { handNodes[i].x = raw[i].x; handNodes[i].y = raw[i].y; handNodes[i].z = raw[i].z; } hasHand = true; } 
+                    else { for (let i = 0; i < 21; i++) { let dist = Math.sqrt((raw[i].x - handNodes[i].x)**2 + (raw[i].y - handNodes[i].y)**2); let alpha = 0.5 + Math.min(dist * 5.0, 0.4); handNodes[i].x += (raw[i].x - handNodes[i].x) * alpha; handNodes[i].y += (raw[i].y - handNodes[i].y) * alpha; handNodes[i].z += (raw[i].z - handNodes[i].z) * alpha; } }
+                } else { hasHand = false; }
+            });
+
+            const videoElem = document.getElementById('video_input');
+            camera = new Camera(videoElem, { onFrame: async () => { await hands.send({image: videoElem}); }, width: 1280, height: 720 });
+        } catch(e) {
+            console.error("Failed to initialize MediaPipe:", e);
+        }
+
+        try { init3D(); animate(); } catch(e) { console.error("3D Error:", e); }
+
+        const btnStart = document.getElementById('btn-start');
+        btnStart.addEventListener('click', () => {
+            // Force the transition immediately so the user can enter the main game no matter what
+            btnStart.classList.add('loading');
+            btnStart.innerHTML = "SYSTEM DEPLOYING...";
+
+            document.getElementById('creator-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('creator-screen').style.display = 'none';
+                document.getElementById('ui-layer').style.display = 'flex';
+                state.isPlayable = true;
+                try { resize2D(); } catch(e) {}
+                try { nextMission(); } catch(e) { console.error("Mission Error: ", e); }
+            }, 800);
+
+            // Audio & Theme Logic enclosed so a failure here won't stop the screen transition
+            try {
+                state.playerName = document.getElementById('playerName').value || 'PILOT-1';
+                const gestureThemeSelect = document.getElementById('gestureTheme');
+                state.packId = gestureThemeSelect ? gestureThemeSelect.value : 'classic';
+                const bgThemeSelect = document.getElementById('bgTheme');
+                const themeKey = bgThemeSelect ? bgThemeSelect.value : 'cyberpunk';
+                const colorBtn = document.querySelector('.color-btn.selected');
+                const hexColor = colorBtn ? colorBtn.getAttribute('data-hex') : '0x00d4ff';
+                
+                if (typeof applyTheme === 'function') applyTheme(themeKey, hexColor);
+            } catch(e) {
+                console.warn("Theme or Logic Error: ", e);
+            }
+            
+            try { AudioEngine.init(); AudioEngine.sfxStartup(); } catch(e) { console.warn("Audio error", e); }
+
+            // Initialize camera asynchronously, catching any synchronous or promise rejection errors silently
+            try {
+                if (typeof camera !== 'undefined' && camera.start) {
+                    camera.start().catch((e) => {
+                        console.warn("Camera Error:", e);
+                        alert("Camera access denied or failed! The AI tracking requires a webcam to actually play. " + (e.message || ""));
+                    });
+                } else {
+                    console.warn("AI Camera component failed to load. Are you opening this file without a Localhost Server?");
+                }
+            } catch(error) {
+                console.error("Camera Synchronous Error:", error);
+            }
+        });
+
+    </script>
+</body>
+</html>

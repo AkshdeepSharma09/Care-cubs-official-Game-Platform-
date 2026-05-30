@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Care Cubs | Experiences</title>
+    <!-- Using only elegant Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #050505;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --brand-blue: #00d4ff;
+            --brand-pink: #ff006e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Sophisticated Ambient Background Orbs */
+        .ambient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            z-index: -1;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--brand-pink);
+            top: -10%;
+            left: -5%;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: var(--brand-blue);
+            bottom: -10%;
+            right: -5%;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 300px;
+            height: 300px;
+            background: #8a2be2;
+            top: 40%;
+            left: 40%;
+            animation-delay: -10s;
+            opacity: 0.2;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, 50px) scale(1.1); }
+            100% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        /* Typography & Header */
+        .header {
+            text-align: center;
+            margin-bottom: 6vw;
+            z-index: 10;
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 300;
+            letter-spacing: -0.05em;
+            line-height: 1.1;
+        }
+
+        h1 b {
+            font-weight: 700;
+        }
+
+        /* Grid & Glass Cards */
+        .games-grid {
+            display: flex;
+            gap: 40px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+            padding: 0 20px;
+            z-index: 10;
+            perspective: 1000px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 32px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.1s;
+            box-shadow: 
+                0 30px 60px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .game-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                0 40px 80px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                0 0 40px rgba(255, 255, 255, 0.05);
+        }
+
+        /* Floating Content inside Card */
+        .card-content {
+            transform: translateZ(30px);
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .icon-wrapper {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s ease;
+        }
+
+        .game-card:hover .icon-wrapper {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+
+        .game-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .game-desc {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        /* Apple-style pill button */
+        .play-btn {
+            align-self: flex-start;
+            padding: 12px 30px;
+            border-radius: 100px;
+            background: var(--text-primary);
+            color: var(--bg-base);
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(255,255,255,0.1);
+        }
+
+        .game-card:hover .play-btn {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(255,255,255,0.2);
+        }
+
+        /* Minimal Navigation */
+        .nav-back {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            transition: color 0.3s ease;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-back svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-back:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-back:hover svg {
+            transform: translateX(-4px);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Subtle Ambient Lighting -->
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+
+    <a href="index.html" class="nav-back">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        INDEX
+    </a>
+
+    <div class="header">
+        <span class="subtitle">Care Cubs Platform</span>
+        <h1>Select <b>Experience</b></h1>
+    </div>
+
+    <div class="games-grid">
+        
+        <!-- Tetris -->
+        <a href="tetris.html" class="game-card tilt-card">
+            <div class="card-content">
+                <div class="icon-wrapper">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="13" y="4" width="7" height="7" rx="1.5" fill="var(--text-primary)" opacity="0.6"/>
+                        <rect x="4" y="13" width="7" height="7" rx="1.5" fill="var(--text-primary)" opacity="0.8"/>
+                        <rect x="13" y="13" width="7" height="7" rx="1.5" fill="var(--text-primary)"/>
+                    </svg>
+                </div>
+                <div class="game-title">Neon Tetris</div>
+                <div class="game-desc">A reimagined classic. Build and stack in a modern aesthetic environment with responsive controls.</div>
+                <div class="play-btn">Launch App</div>
+            </div>
+        </a>
+
+        <!-- Mirror Bot -->
+        <a href="newgame.html" class="game-card tilt-card">
+            <div class="card-content">
+                <div class="icon-wrapper">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4C8 4 5 7 5 11V16C5 18 7 20 10 20H14C17 20 19 18 19 16V11C19 7 16 4 12 4Z" stroke="var(--text-primary)" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="9" cy="12" r="2" fill="var(--text-primary)"/>
+                        <circle cx="15" cy="12" r="2" fill="var(--text-primary)"/>
+                    </svg>
+                </div>
+                <div class="game-title">Mirror Bot</div>
+                <div class="game-desc">An interactive AI companion that utilizes advanced computer vision to track and mimic your gestures in real-time.</div>
+                <div class="play-btn">Launch App</div>
+            </div>
+        </a>
+
+        <!-- Air Canvas Pro -->
+        <a href="airpaint.html" class="game-card tilt-card">
+            <div class="card-content">
+                <div class="icon-wrapper">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 16C4 16 6 12 9 12C12 12 14 16 14 16" stroke="var(--text-primary)" stroke-width="2.5" stroke-linecap="round"/>
+                        <path d="M10 8C10 8 12 4 15 4C18 4 20 8 20 8" stroke="var(--text-primary)" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="15" cy="16" r="3" fill="var(--text-primary)"/>
+                    </svg>
+                </div>
+                <div class="game-title">Air Canvas Pro</div>
+                <div class="game-desc">An immersive hand-gesture painting experience. Move your hands freely to draw, build shapes, and create art without touching a screen.</div>
+                <div class="play-btn">Launch App</div>
+            </div>
+        </a>
+
+    </div>
+
+    <!-- 3D Tilt Script for ultra-premium interactions -->
+    <script>
+        const cards = document.querySelectorAll('.tilt-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const rotationX = ((y - centerY) / centerY) * -10; // Max 10 deg
+                const rotationY = ((x - centerX) / centerX) * 10;
+                
+                card.style.transform = `perspective(1000px) rotateX(${rotationX}deg) rotateY(${rotationY}deg) scale3d(1.02, 1.02, 1.02)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+            });
+        });
+    </script>
+</body>
+</html>

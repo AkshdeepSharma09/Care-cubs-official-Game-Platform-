@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Care Cubs | Air Canvas Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg-base: #030305;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --brand-blue: #00e5ff;
+            --brand-pink: #ff007f;
+            --brand-purple: #b500d4;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            background-color: var(--bg-base);
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-primary);
+            user-select: none;
+        }
+
+        /* Ambient Background */
+        .ambient-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, #110022 0%, #030305 100%);
+            z-index: 0;
+            animation: pulse-bg 10s infinite alternate;
+        }
+        @keyframes pulse-bg {
+            0% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        /* UI Layer - Auto Hides */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%;
+            padding: 40px; z-index: 10;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            pointer-events: none; transition: opacity 0.5s ease;
+        }
+        body.drawing #ui-layer, body.drawing #toolbar {
+            opacity: 0.1;
+        }
+
+        .header-group { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+
+        .back-btn {
+            display: inline-flex; align-items: center; padding: 12px 28px;
+            font-size: 0.85rem; font-weight: 600; letter-spacing: 0.15em;
+            text-transform: uppercase; text-decoration: none; color: var(--text-primary);
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 100px; backdrop-filter: blur(15px); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+
+        .title-area h1 {
+            font-size: 2rem; font-weight: 200; letter-spacing: 0.1em; margin-top: 10px;
+        }
+        .title-area h1 b {
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--brand-blue), var(--brand-pink));
+            background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .controls { pointer-events: auto; display: flex; gap: 15px; }
+
+        .action-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 12px 28px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em;
+            border-radius: 100px; background: var(--text-primary); color: var(--bg-base);
+            border: none; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+        }
+        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,255,255,0.25); }
+        .action-btn.secondary { background: transparent; color: var(--text-primary); border: 1px solid rgba(255,255,255,0.2); }
+        .action-btn.secondary:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.6); }
+
+        /* Toolbar */
+        #toolbar {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; background: rgba(10, 10, 15, 0.5); padding: 10px 20px;
+            border-radius: 100px; border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(30px); z-index: 10; pointer-events: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); transition: opacity 0.5s ease;
+        }
+        .tool-btn {
+            background: transparent; border: none; color: var(--text-secondary);
+            font-size: 0.9rem; font-weight: 500; letter-spacing: 0.05em; cursor: pointer;
+            padding: 12px 20px; border-radius: 100px; transition: all 0.3s ease; font-family: inherit; display: flex; align-items: center; gap: 8px;
+        }
+        .tool-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+        .tool-btn.active { color: var(--bg-base); background: var(--text-primary); box-shadow: 0 5px 20px rgba(255,255,255,0.3); }
+
+        .color-picker { display: flex; gap: 12px; align-items: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 20px; margin-left: 5px; }
+        .color-dot {
+            width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
+        }
+        .color-dot:hover { transform: scale(1.15); }
+        .color-dot.active { border-color: white; transform: scale(1.3); box-shadow: 0 0 15px currentColor; }
+
+        /* Overlays & Notifications */
+        #onboarding {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 1s ease; text-align: center; pointer-events: none;
+            padding: 40px 20px; overflow-y: auto;
+        }
+        #onboarding h2 { font-size: 3rem; font-weight: 300; margin-bottom: 20px; }
+        #onboarding p { font-size: 1.2rem; color: var(--text-secondary); max-width: 600px; line-height: 1.6; margin-bottom: 40px; }
+        .gesture-icons { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; margin-top: 20px; }
+        .gesture-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); width: 140px;}
+        .gesture-card span { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+        .gesture-card div { font-size: 0.9rem; font-weight: 600; letter-spacing: 0.05em; }
+
+        #toast {
+            position: absolute; top: 40px; left: 50%; transform: translateX(-50%) translateY(-20px);
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); padding: 15px 30px;
+            border-radius: 100px; font-size: 0.95rem; font-weight: 500; letter-spacing: 0.1em;
+            opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.15); z-index: 200; box-shadow: 0 15px 35px rgba(0,0,0,0.3); text-transform: uppercase;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        #loader {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            font-size: 1rem; font-weight: 500; letter-spacing: 0.3em; color: var(--text-primary);
+            z-index: 101; text-align: center; transition: opacity 0.5s ease;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 2px solid rgba(255, 255, 255, 0.05);
+            border-top-color: var(--brand-blue); border-right-color: var(--brand-pink); border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite; margin: 0 auto 25px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .input_video { position: absolute; right: -1000px; opacity: 0; }
+        /* Critical: Use hardware acceleration and filter hints for canvases to prevent rendering drops */
+        .output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transform: scaleX(-1) translateZ(0); will-change: contents; }
+        .fx_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; transform: scaleX(-1) translateZ(0); pointer-events: none; mix-blend-mode: screen; will-change: contents; }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-bg"></div>
+
+    <div id="onboarding">
+        <h2>Welcome to <b>Air Canvas Pro</b></h2>
+        <p>Your hands are the brushes. Move fluidly. Pinch to paint. Extend fingers to switch tools perfectly hands-free.</p>
+        <div class="gesture-icons">
+            <div class="gesture-card"><span>&#9757;</span><div>1 FINGER<br><small style="color:#aaa;font-weight:400;font-size:0.7rem;margin-top:5px;display:block">Freehand Stroke</small></div></div>
+            <div class="gesture-card"><span>&#9996;</span><div>2 FINGERS<br><small style="color:#aaa;font-weight:400;font-size:0.7rem;margin-top:5px;display:block">Rectangle Shape</small></div></div>
+            <div class="gesture-card"><span>&#129311;</span><div>3 FINGERS<br><small style="color:#aaa;font-weight:400;font-size:0.7rem;margin-top:5px;display:block">Circle Shape</small></div></div>
+            <div class="gesture-card"><span>&#9995;</span><div>5 FINGERS<br><small style="color:#aaa;font-weight:400;font-size:0.7rem;margin-top:5px;display:block">Move / Drag</small></div></div>
+        </div>
+        <p style="font-size: 0.9rem; margin-top: 40px; color: var(--brand-blue); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;">Show your hand to the camera to begin</p>
+    </div>
+
+    <div id="ui-layer">
+        <div class="header-group">
+            <a href="games_list.html" class="back-btn">&#8592; Exit Studio</a>
+            <div class="title-area"><h1>Air <b>Canvas</b></h1></div>
+        </div>
+        <div class="controls">
+            <button class="action-btn secondary" id="clearBtn">Clear Canvas</button>
+            <button class="action-btn" id="saveBtn">Save Art</button>
+        </div>
+    </div>
+
+    <div id="toolbar">
+        <button class="tool-btn active" data-tool="draw">&#9998; Draw</button>
+        <button class="tool-btn" data-tool="rect">&#9645; Rect</button>
+        <button class="tool-btn" data-tool="circle">&#9711; Circle</button>
+        <button class="tool-btn" data-tool="move">&#10021; Move</button>
+        
+        <div class="color-picker">
+            <div class="color-dot active" style="background:#00e5ff; box-shadow: 0 0 15px #00e5ff" data-color="#00e5ff"></div>
+            <div class="color-dot" style="background:#ff007f" data-color="#ff007f"></div>
+            <div class="color-dot" style="background:#39ff14" data-color="#39ff14"></div>
+            <div class="color-dot" style="background:#b500d4" data-color="#b500d4"></div>
+            <div class="color-dot" style="background:#ffffff" data-color="#ffffff"></div>
+            <div class="color-dot" style="background: linear-gradient(135deg, red, orange, yellow, green, cyan, blue, purple); box-shadow: 0 0 10px rgba(255,255,255,0.5);" data-rainbow="true"></div>
+        </div>
+    </div>
+
+    <div id="loader"><div class="spinner"></div>CALIBRATING LENSES</div>
+
+    <video class="input_video"></video>
+    <canvas class="output_canvas"></canvas>
+    <canvas class="fx_canvas"></canvas>
+
+    <div id="toast">Ready!</div>
+
+    <script>
+        // Audio Engine Component
+        const AudioSys = {
+            ctx: null, init: false,
+            setup() {
+                if(!this.init) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.init = true;
+                }
+            },
+            playScale(freq, type='sine', vol=0.1, duration=0.5) {
+                if(!this.init) return;
+                const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + duration);
+            },
+            chime() { this.playScale(880, 'sine', 0.1, 0.8); this.playScale(1760, 'triangle', 0.05, 1.2); },
+            pop() { this.playScale(440, 'sine', 0.15, 0.2); },
+            drawLoop: null,
+            startDraw() {
+                if(!this.init || this.drawLoop) return;
+                this.drawLoop = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                this.drawLoop.type = 'sine'; this.drawLoop.frequency.value = 110;
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.1);
+                this.drawLoop.connect(gain); gain.connect(this.ctx.destination);
+                this.drawLoop.gainNode = gain;
+                this.drawLoop.start();
+            },
+            stopDraw() {
+                if(this.drawLoop) {
+                    this.drawLoop.gainNode.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+                    this.drawLoop.stop(this.ctx.currentTime + 0.2);
+                    this.drawLoop = null;
+                }
+            }
+        };
+
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvasElement = document.getElementsByClassName('output_canvas')[0];
+        const canvasCtx = canvasElement.getContext('2d', { alpha: true });
+        const fxCanvas = document.getElementsByClassName('fx_canvas')[0];
+        const fxCtx = fxCanvas.getContext('2d', { alpha: true });
+        const loader = document.getElementById('loader');
+        
+        let width, height; let objects = []; let isPinching = false;
+        let activeTool = 'draw'; let currentColor = '#00e5ff'; let rainbowMode = false; let particles = [];
+        
+        let gestureFrames = 0, lastGestureCount = 0, currentObject = null, dragObject = null;
+        let pointerX = null, pointerY = null, lastPointerX = 0, lastPointerY = 0, speed = 0, dragOffsetX = 0, dragOffsetY = 0;
+        let hasStarted = false;
+
+        function resizeCanvas() {
+            width = window.innerWidth; height = window.innerHeight;
+            canvasElement.width = width; canvasElement.height = height;
+            fxCanvas.width = width; fxCanvas.height = height; 
+            
+            // Critical optimization: Explicitly disable anti-aliasing for massive performance boost
+            canvasCtx.imageSmoothingEnabled = false;
+            fxCtx.imageSmoothingEnabled = false;
+            renderCanvas();
+        }
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+        function getDistance(x1, y1, x2, y2) { return Math.sqrt((x2-x1)**2 + (y2-y1)**2); }
+        function hexToRgb(hex) {
+            let r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return r ? `${parseInt(r[1], 16)}, ${parseInt(r[2], 16)}, ${parseInt(r[3], 16)}` : '255,255,255';
+        }
+        
+        function getActiveColor() {
+            if (rainbowMode) {
+                // Guaranteed smooth RGB output driven strictly by cycle time
+                let cycleTimeMs = 5000; // 5 seconds per full rainbow rotation
+                let h = ((performance.now() % cycleTimeMs) / cycleTimeMs);
+                let s = 1.0, l = 0.5;
+                let r, g, b;
+                
+                const hue2rgb = (p, q, t) => {
+                    if(t < 0) t += 1;
+                    if(t > 1) t -= 1;
+                    if(t < 1/6) return p + (q - p) * 6 * t;
+                    if(t < 1/2) return q;
+                    if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+                
+                const toHex = x => { const hex = Math.round(x * 255).toString(16); return hex.length === 1 ? '0' + hex : hex; };
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            }
+            return currentColor;
+        }
+
+        function spawnParticles(x, y, color, count=10) {
+            // Memory optimization: Strict particle limit
+            if (particles.length > 400) particles.splice(0, particles.length - 400);
+            for(let i=0; i<count; i++) {
+                if (particles.length >= 500) break;
+                particles.push({
+                    x, y, vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, life: 1.0, color, size: Math.random()*4 + 2
+                });
+            }
+        }
+
+        function drawSmoothPath(ctx, points, color, glow=true) {
+            if (points.length < 3) {
+                // If it's just a dot, draw a circle so it actually shows up
+                ctx.arc(points[0].x, points[0].y, 4, 0, Math.PI*2);
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.fill();
+                return;
+            }
+            ctx.beginPath(); 
+            ctx.moveTo(points[0].x, points[0].y);
+            
+            // Downsample dense points to boost rendering speeds
+            let step = points.length > 30 ? 2 : 1; 
+            for (let i = 1; i < points.length - step - 1; i += step) {
+                let xc = (points[i].x + points[i+step].x) / 2, yc = (points[i].y + points[i+step].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+            let last = points[points.length-1];
+            let prev = points.length > 2 ? points[points.length-2] : points[0];
+            ctx.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
+            
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            if(glow) {
+                // Glow optimized: Only render one pass instead of huge shadow drops if path is very long
+                if(points.length < 100) { ctx.shadowBlur = 15; ctx.shadowColor = color; }
+                else { ctx.shadowBlur = 0; }
+                
+                ctx.strokeStyle = `rgba(${hexToRgb(color)}, 0.8)`; ctx.lineWidth = 12; ctx.stroke();
+                ctx.shadowBlur = 0; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.stroke();
+            } else {
+                ctx.shadowBlur = 0; ctx.strokeStyle = color; ctx.lineWidth=6; ctx.stroke();
+            }
+        }
+
+        function renderCanvas() {
+            canvasCtx.clearRect(0, 0, width, height);
+            objects.forEach(obj => {
+                if (Array.isArray(obj.points)) drawSmoothPath(canvasCtx, obj.points, obj.color, obj.selected || true);
+                else {
+                    canvasCtx.beginPath();
+                    if (obj.type === 'rect') canvasCtx.rect(obj.x, obj.y, obj.w, obj.h);
+                    if (obj.type === 'circle') canvasCtx.arc(obj.x, obj.y, obj.r, 0, Math.PI*2);
+                    canvasCtx.fillStyle = `rgba(${hexToRgb(obj.color)}, 0.15)`; canvasCtx.fill();
+                    canvasCtx.strokeStyle = obj.selected ? '#ffffff' : obj.color; canvasCtx.lineWidth = obj.selected ? 8 : 5;
+                    canvasCtx.shadowBlur = obj.selected ? 30 : 15; canvasCtx.shadowColor = obj.color; canvasCtx.stroke();
+                }
+            });
+            if (currentObject) {
+                if (Array.isArray(currentObject.points)) drawSmoothPath(canvasCtx, currentObject.points, currentObject.color, true);
+                else {
+                    canvasCtx.beginPath();
+                    if (currentObject.type === 'rect') {
+                        let currentW = pointerX - currentObject.startX;
+                        let currentH = pointerY - currentObject.startY;
+                        canvasCtx.rect(currentObject.startX, currentObject.startY, currentW, currentH);
+                    }
+                    if (currentObject.type === 'circle') canvasCtx.arc(currentObject.startX, currentObject.startY, getDistance(currentObject.startX, currentObject.startY, pointerX, pointerY), 0, Math.PI*2);
+                    canvasCtx.fillStyle = `rgba(${hexToRgb(currentObject.color)}, 0.2)`; canvasCtx.strokeStyle = '#ffffff';
+                    canvasCtx.lineWidth = 6; canvasCtx.shadowBlur = 25; canvasCtx.shadowColor = currentObject.color;
+                    canvasCtx.fill(); canvasCtx.stroke();
+                }
+            }
+        }
+
+        let canvasDirty = true;
+        function requestRender() { canvasDirty = true; }
+
+        function renderFX() {
+            // Decouple canvas rendering from camera loop (Locks 60FPS)
+            if (canvasDirty) { renderCanvas(); canvasDirty = false; }
+
+            fxCtx.clearRect(0,0,width,height);
+            let pCount = particles.length;
+            for(let i=pCount-1; i>=0; i--) {
+                let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vx *= 0.9; p.vy *= 0.9; p.life -= 0.02;
+                if(p.life <= 0) { particles.splice(i,1); continue; }
+                fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+                fxCtx.fillStyle = `rgba(${hexToRgb(p.color)}, ${p.life})`;
+                // Disable shadowBlur on particles to save massive GPU overhead
+                fxCtx.fill();
+            }
+            if (pointerX && pointerY) {
+                let dynamicColor = getActiveColor();
+                fxCtx.beginPath(); fxCtx.arc(pointerX, pointerY, isPinching ? 8 : 12, 0, Math.PI*2);
+                fxCtx.fillStyle = isPinching ? dynamicColor : 'rgba(255,255,255,0.9)';
+                fxCtx.shadowBlur = 15; fxCtx.shadowColor = isPinching ? dynamicColor : '#fff'; fxCtx.fill();
+                fxCtx.beginPath(); fxCtx.arc(pointerX, pointerY, isPinching ? (15 + speed*0.2) : 25, 0, Math.PI*2);
+                fxCtx.strokeStyle = `rgba(255,255,255,${isPinching ? 0.8 : 0.3})`;
+                fxCtx.lineWidth = 2; fxCtx.stroke();
+            }
+            requestAnimationFrame(renderFX);
+        } renderFX();
+
+        function setActiveTool(tool) {
+            if (activeTool === tool) return;
+            activeTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => {
+                if (b.getAttribute('data-tool') === tool) b.classList.add('active'); else b.classList.remove('active');
+            });
+            objects.forEach(o => o.selected = false);
+            const names = {draw: 'Freehand', rect: 'Rectangle', circle: 'Circle', move: 'Move Object'};
+            showToast(names[tool] + " Mode"); AudioSys.chime();
+            spawnParticles(pointerX || width/2, pointerY || height/2, getActiveColor(), 30); renderCanvas();
+        }
+
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.addEventListener('click', e => setActiveTool(e.target.getAttribute('data-tool'))));
+        document.querySelectorAll('.color-dot').forEach(dot => {
+            dot.addEventListener('click', e => {
+                document.querySelectorAll('.color-dot').forEach(d => { d.classList.remove('active'); d.style.boxShadow = 'none'; d.style.border = '2px solid transparent'; });
+                e.target.classList.add('active'); 
+                
+                if (e.target.getAttribute('data-rainbow') === "true") {
+                    rainbowMode = true;
+                    e.target.style.boxShadow = `0 0 20px #fff`;
+                    e.target.style.border = `2px solid #fff`;
+                    AudioSys.chime(); showToast("Rainbow Mode");
+                } else {
+                    rainbowMode = false;
+                    currentColor = e.target.getAttribute('data-color');
+                    e.target.style.boxShadow = `0 0 15px ${currentColor}`;
+                    AudioSys.pop();
+                }
+            });
+        });
+
+        function getObjectAtPoint(x, y) {
+            for (let i = objects.length - 1; i >= 0; i--) {
+                let obj = objects[i];
+                if (obj.type === 'rect') {
+                    let minX = Math.min(obj.x, obj.x + obj.w), maxX = Math.max(obj.x, obj.x + obj.w);
+                    let minY = Math.min(obj.y, obj.y + obj.h), maxY = Math.max(obj.y, obj.y + obj.h);
+                    if (x >= minX && x <= maxX && y >= minY && y <= maxY) return obj;
+                } else if (obj.type === 'circle') { if (getDistance(x, y, obj.x, obj.y) <= obj.r) return obj;
+                } else if (Array.isArray(obj.points)) { for (let p of obj.points) if (getDistance(x, y, p.x, p.y) < 25) return obj; }
+            } return null;
+        }
+
+        document.addEventListener('click', () => AudioSys.setup(), {once:true});
+
+        let positionHistory = []; 
+        let gestureLastActive = 0; 
+        
+        // Advanced Smoothing (Kalman-style 1D filter for coordinates)
+        let kalmanX = null, kalmanY = null, kalmanV = 0.1;
+
+        function kalmanFilter(val, prevVal, prevV) {
+            if (prevVal === null) return { p: val, v: 1 };
+            // Simple robust filter
+            let gain = 0.4;
+            let currentP = prevVal + gain * (val - prevVal);
+            return { p: currentP, v: gain };
+        }
+
+function onResults(results) {
+            try {
+                if (!hasStarted) {
+                    hasStarted = true; document.getElementById('onboarding').style.opacity = '0'; loader.style.opacity = '0';
+                    AudioSys.setup(); AudioSys.chime();
+                    setTimeout(() => { document.getElementById('onboarding').style.display='none'; loader.style.display='none'; }, 1000);
+                    console.log("[SYSTEM] Air Canvas Pipeline Initialized");
+                }
+                
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    const landmarks = results.multiHandLandmarks[0];
+                    if (!landmarks || landmarks.length < 21) {
+                        console.warn("[WARNING] Invalid landmarks detected");
+                        return;
+                    }
+                    
+                    const indexTip = landmarks[8], thumbTip = landmarks[4];
+                    if (isNaN(indexTip.x) || isNaN(indexTip.y) || isNaN(thumbTip.x) || isNaN(thumbTip.y)) {
+                        console.error("[ERROR] NaN detected in landmarks");
+                        return;
+                    }
+
+                    let rawX = indexTip.x * width;
+                    let rawY = indexTip.y * height;
+                    
+                    // Anti-teleport
+                    if (pointerX !== null && getDistance(pointerX, pointerY, rawX, rawY) > width * 0.4) {
+                        console.warn("[WARNING] Teleportation detected, resetting tracking filter.");
+                        pointerX = rawX; pointerY = rawY; kalmanX = null; kalmanY = null;
+                    }
+
+                    // Apply Kalman-style filtering
+                    let kX = kalmanFilter(rawX, kalmanX, kalmanV);
+                    let kY = kalmanFilter(rawY, kalmanY, kalmanV);
+                    kalmanX = kX.p; kalmanY = kY.p;
+                    
+                    pointerX = kalmanX; 
+                    pointerY = kalmanY;
+                    
+                    lastPointerX = pointerX; lastPointerY = pointerY;
+                    speed = getDistance(pointerX, pointerY, lastPointerX, lastPointerY) || 1;
+                    
+                    gestureLastActive = Date.now();
+                    document.body.classList.add('hand-detected');
+
+                    // Strict Pinch detection
+                    const pinchDist = getDistance(indexTip.x, indexTip.y, thumbTip.x, thumbTip.y);
+                    const wasPinching = isPinching;
+                    
+                    if (!isPinching && pinchDist < 0.05) { isPinching = true; console.log("[GESTURE] PINCH START"); }
+                    else if (isPinching && pinchDist > 0.08) { isPinching = false; console.log("[GESTURE] PINCH RELEASE"); }
+
+                    if (isPinching) document.body.classList.add('drawing'); else document.body.classList.remove('drawing');
+
+                    if (!isPinching && !currentObject && !dragObject) {
+                        let count = 0;
+                        if (landmarks[8].y < landmarks[6].y) count++; if (landmarks[12].y < landmarks[10].y) count++; 
+                        if (landmarks[16].y < landmarks[14].y) count++; if (landmarks[20].y < landmarks[18].y) count++; 
+                        if (count > 0) {
+                            if (count === lastGestureCount) {
+                                gestureFrames++;
+                                if (gestureFrames === 15) { // More responsive tool switching
+                                    if (count === 1) setActiveTool('draw'); else if (count === 2) setActiveTool('rect');
+                                    else if (count === 3) setActiveTool('circle'); else if (count >= 4) setActiveTool('move');
+                                }
+                            } else { lastGestureCount = count; gestureFrames = 0; }
+                        } else gestureFrames = 0;
+                    } else gestureFrames = 0;
+
+                    if (!wasPinching && isPinching) {
+                        AudioSys.startDraw();
+                        let dColor = getActiveColor();
+                        
+                        // Universal Pinch Action: If you pinch an object, you move it. Otherwise, you draw!
+                        dragObject = getObjectAtPoint(pointerX, pointerY);
+                        
+                        if (activeTool === 'move' || dragObject) {
+                            if (dragObject) {
+                                objects.forEach(o => o.selected = false); dragObject.selected = true; AudioSys.pop();
+                                if (dragObject.type === 'rect' || dragObject.type === 'circle') { dragOffsetX = pointerX - dragObject.x; dragOffsetY = pointerY - dragObject.y; }
+                                else if (Array.isArray(dragObject.points)) { dragOffsetX = pointerX; dragOffsetY = pointerY; }
+                            }
+                        } else {
+                            if (activeTool === 'draw') currentObject = { color: dColor, points: [{x: pointerX, y: pointerY}] };
+                            else if (activeTool === 'rect' || activeTool === 'circle') currentObject = { type: activeTool, color: dColor, startX: pointerX, startY: pointerY };
+                        }
+                    }
+
+                    if (isPinching) {
+                        if (dragObject) {
+                            if (dragObject.type === 'rect' || dragObject.type === 'circle') { dragObject.x = pointerX - dragOffsetX; dragObject.y = pointerY - dragOffsetY; }
+                            else if (Array.isArray(dragObject.points)) { let dx = pointerX - dragOffsetX, dy = pointerY - dragOffsetY; dragObject.points.forEach(p => { p.x += dx; p.y += dy; }); dragOffsetX = pointerX; dragOffsetY = pointerY; }
+                        } else if (activeTool === 'draw' || activeTool === 'rect' || activeTool === 'circle') {
+                        if (activeTool === 'draw' && currentObject) {
+                            if (rainbowMode) currentObject.color = getActiveColor(); // Gradient effect update mid-stroke
+                            currentObject.points.push({x: pointerX, y: pointerY});
+                            if(speed > 5 && Math.random() > 0.6) spawnParticles(pointerX, pointerY, getActiveColor(), 1);
+                        }
+                    }
+                    }
+
+                    if (wasPinching && !isPinching) {
+                        AudioSys.stopDraw();
+                        if (currentObject) {
+                            if (currentObject.type === 'rect') {
+                                let w = pointerX - currentObject.startX, h = pointerY - currentObject.startY;
+                                if (Math.abs(w)>10 && Math.abs(h)>10) objects.push({ type: 'rect', color: currentObject.color, x: currentObject.startX, y: currentObject.startY, w: w, h: h });
+                            } else if (currentObject.type === 'circle') {
+                                let r = getDistance(currentObject.startX, currentObject.startY, pointerX, pointerY);
+                                if (r>10) objects.push({ type: 'circle', color: currentObject.color, x: currentObject.startX, y: currentObject.startY, r: r });
+                            } else if (Array.isArray(currentObject.points) && currentObject.points.length > 2) objects.push(currentObject);
+                            spawnParticles(pointerX, pointerY, getActiveColor(), 15); AudioSys.pop(); currentObject = null;
+                        }
+                        if (dragObject) { dragObject.selected = false; dragObject = null; }
+                    }
+                } else {
+                    if (Date.now() - gestureLastActive > 1000) { 
+                        if (pointerX !== null) console.log("[SYSTEM] Hands lost. Degrading gracefully.");
+                        document.body.classList.remove('hand-detected');
+                        pointerX = null; pointerY = null; isPinching = false; kalmanX = null; kalmanY = null;
+                        if(currentObject || dragObject) { AudioSys.stopDraw(); currentObject=null; if(dragObject) dragObject.selected=false; dragObject=null; }
+                    }
+                }
+                
+                requestRender(); 
+            } catch(e) {
+                console.error("[CRITICAL ERROR] Pipeline Crashed:", e);
+                pointerX = null; pointerY = null; isPinching = false; kalmanX = null; kalmanY = null;
+            }
+        }
+
+        const hands = new Hands({locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        // Highest strictness enforced.
+        hands.setOptions({maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.85, minTrackingConfidence: 0.85});
+        hands.onResults(onResults);
+        const camera = new Camera(videoElement, { 
+            onFrame: async () => {
+                try {
+                    await hands.send({image: videoElement});
+                } catch(e) {
+                    console.error('[CRITICAL] Camera/Pipeline Frame Drop:', e);
+                }
+            }, 
+            width: 640, height: 480 
+        });
+        camera.start().catch(err => console.error("[CRITICAL] Camera start failed:", err));
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            objects = []; currentObject = null; renderCanvas(); spawnParticles(width/2, height/2, '#ffffff', 100); AudioSys.chime(); showToast("Blank Canvas");
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const temp = document.createElement('canvas'); temp.width=width; temp.height=height; const tCtx=temp.getContext('2d');
+            tCtx.fillStyle='#030305'; tCtx.fillRect(0,0,width,height);
+            tCtx.translate(width,0); tCtx.scale(-1,1); tCtx.drawImage(canvasElement,0,0);
+            const a = document.createElement('a'); a.download='air-canvas-art.png'; a.href=temp.toDataURL('image/png'); a.click();
+            spawnParticles(width/2, height/2, '#ff007f', 50); AudioSys.chime(); showToast("Masterpiece Captured!");
+        });
+
+        function showToast(msg) {
+            const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2500);
+        }
+        renderCanvas();
+    </script>
+</body>
+</html>
+
