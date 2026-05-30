@@ -8,11 +8,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #050505;
+            --bg-base: #0a0c1a;
             --text-primary: #ffffff;
-            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-secondary: rgba(190, 200, 230, 0.55);
             --brand-blue: #00d4ff;
             --brand-pink: #ff006e;
+            --brand-purple: #b040ff;
         }
 
         * {
@@ -24,7 +25,7 @@
         }
 
         body {
-            background-color: var(--bg-base);
+            background: radial-gradient(ellipse at 50% 35%, #181c3a 0%, #0d0f20 40%, #070910 100%);
             font-family: 'Montserrat', sans-serif;
             color: var(--text-primary);
             min-height: 100vh;
@@ -67,7 +68,7 @@
         .orb-3 {
             width: 300px;
             height: 300px;
-            background: #8a2be2;
+            background: var(--brand-purple);
             top: 40%;
             left: 40%;
             animation-delay: -10s;

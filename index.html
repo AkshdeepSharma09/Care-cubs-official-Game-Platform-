@@ -36,23 +36,39 @@
         #loader {
             position: fixed; inset: 0; z-index: 100;
             background: radial-gradient(ellipse at 50% 35%, #181c3a 0%, #0d0f20 40%, #070910 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
-            transition: opacity 0.6s var(--ease-out-expo);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px;
+            transition: opacity 0.8s var(--ease-out-expo), filter 0.8s ease;
         }
-        #loader.hidden { opacity: 0; pointer-events: none; }
+        #loader.hidden { opacity: 0; pointer-events: none; filter: blur(15px); }
 
+        .loader-ring {
+            position: relative; width: 90px; height: 90px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .loader-ring svg {
+            position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg);
+        }
+        .loader-ring circle {
+            fill: none; stroke-width: 2.5; stroke-linecap: round;
+        }
+        .ring-bg { stroke: rgba(255,255,255,0.04); }
+        .ring-fg {
+            stroke: url(#ring-grad); stroke-dasharray: 283; stroke-dashoffset: 283;
+            animation: trace 1.6s cubic-bezier(0.65, 0, 0.35, 1) forwards; transform-origin: center;
+        }
         .loader-logo {
-            font-size: 3rem; font-weight: 700; color: var(--brand-blue);
-            letter-spacing: -0.05em; animation: pulse 1.2s ease-in-out infinite;
+            font-size: 2.4rem; font-weight: 700; color: #fff;
+            letter-spacing: -0.05em; opacity: 0; transform: scale(0.85);
+            animation: pop-in 0.9s var(--ease-out-back) 0.4s forwards;
+            text-shadow: 0 0 25px rgba(0, 212, 255, 0.4);
         }
-        .loader-track { width: 160px; height: 2px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
-        .loader-bar {
-            height: 100%; width: 0%;
-            background: linear-gradient(90deg, var(--brand-blue), var(--brand-purple), var(--brand-pink));
-            border-radius: 2px; animation: bar-fill 0.9s var(--ease-out-expo) 0.1s forwards;
+        .loader-text {
+            font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5em; color: var(--text-secondary);
+            text-transform: uppercase; opacity: 0; animation: fade-up 0.8s var(--ease-out-expo) 0.6s forwards;
         }
-        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.93)} }
-        @keyframes bar-fill { to{width:100%} }
+        @keyframes trace { to { stroke-dashoffset: 0; transform: rotate(180deg); } }
+        @keyframes pop-in { to { opacity: 1; transform: scale(1); } }
+        @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ─── FLASH ───────────────────────────────────────── */
         #flash { position:fixed;inset:0;pointer-events:none;opacity:0;z-index:50;
@@ -171,8 +187,20 @@
 <body>
 
 <div id="loader" role="status" aria-label="Loading Care Cubs">
-    <div class="loader-logo" aria-hidden="true">C</div>
-    <div class="loader-track" aria-hidden="true"><div class="loader-bar"></div></div>
+    <div class="loader-ring">
+        <svg viewBox="0 0 100 100">
+            <defs>
+                <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#00d4ff" />
+                    <stop offset="100%" stop-color="#b040ff" />
+                </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="50" cy="50" r="45"></circle>
+            <circle class="ring-fg" cx="50" cy="50" r="45"></circle>
+        </svg>
+        <div class="loader-logo" aria-hidden="true">C</div>
+    </div>
+    <div class="loader-text" aria-hidden="true">INITIALIZING</div>
 </div>
 
 <div id="flash" aria-hidden="true"></div>
